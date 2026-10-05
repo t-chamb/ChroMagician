@@ -52,7 +52,7 @@ class FakeFirmwareTools implements FirmwareTools {
         : command.contains('--detect')
         ? detection
         : command.contains('image_info')
-        ? 'Checksum: 77 (${imageChecksum ? 'valid' : 'invalid'})\nValidation Hash: abc (valid)'
+        ? 'Checksum: 0x77 (${imageChecksum ? 'valid' : 'invalid'})\nValidation hash: abc (valid)'
         : command.contains('write_flash')
         ? 'Writing at 0x10000... (50 %)\n${mcuChecksum ? 'Hash of data verified.' : 'Done'}'
         : command.contains('--write-flash')

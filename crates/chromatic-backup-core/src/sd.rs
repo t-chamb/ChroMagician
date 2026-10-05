@@ -794,7 +794,8 @@ mod tests {
         );
     }
 
-    #[cfg(unix)]
+    // Pseudo-terminal fixtures: macOS ptys reject baud-rate changes (ENOTTY).
+    #[cfg(target_os = "linux")]
     fn batch_script(
         script: Vec<(Vec<u8>, String)>,
         paths: &[&str],
@@ -849,7 +850,7 @@ mod tests {
         result
     }
 
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     #[test]
     fn bulk_move_reuses_rename_and_checks_all_collisions_before_mutation() {
         let source = concat!(
@@ -877,7 +878,7 @@ mod tests {
         }
     }
 
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     #[test]
     fn bulk_delete_expands_selected_folders_and_preserves_other_entries() {
         let script = vec![
@@ -906,7 +907,7 @@ mod tests {
         assert!(batch_script(script, &["/Folder"], Some("/Folder/nested"), false).is_err());
     }
 
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     #[test]
     fn bulk_move_stops_at_a_device_failure() {
         let script = vec![
@@ -962,7 +963,7 @@ mod tests {
         assert!(parse_status("STATUS present=1 error=ESP_FAIL").is_err());
     }
     use super::*;
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     #[test]
     fn folder_deletion_validates_then_removes_children_before_parents() {
         for malicious in [false, true] {
@@ -1034,7 +1035,7 @@ mod tests {
         assert_eq!(std::path::Path::new(&result).extension().unwrap(), "gbc");
     }
 
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     #[test]
     #[allow(clippy::too_many_lines)]
     fn direct_backup_waits_for_the_complete_rom_save_and_clock_set() {
@@ -1144,7 +1145,7 @@ mod tests {
             peer.join().unwrap();
         }
     }
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     #[test]
     fn binary_download_checks_crc_and_preserves_exact_final_length() {
         for corrupt in [false, true] {

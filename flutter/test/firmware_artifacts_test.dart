@@ -18,7 +18,7 @@ class ReadOnlyFirmwareTools implements FirmwareTools {
     if (command.contains('write_flash')) throw const FirmwareFailure(stopped);
     if (![
       'version',
-      '--version',
+      '-V',
       'image_info',
       '--scan-usb',
       '--detect',

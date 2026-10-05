@@ -37,6 +37,9 @@ Future<void> main(List<String> arguments) async {
   if (Platform.isLinux) {
     firmwareDirectory = p.join(app, '.dart_tool', 'linux-tools');
   }
+  if (Platform.isMacOS) {
+    firmwareDirectory = p.join(app, '.dart_tool', 'macos-tools');
+  }
   if (Platform.isWindows) {
     firmwareDirectory ??= p.join(app, '.dart_tool', 'windows-tools');
     final manifest = File(p.join(firmwareDirectory, 'manifest.json'));
@@ -51,6 +54,7 @@ Future<void> main(List<String> arguments) async {
   }
   if (firmwareDirectory != null &&
       !Platform.isLinux &&
+      !Platform.isMacOS &&
       !File(p.join(firmwareDirectory, 'manifest.json')).existsSync()) {
     throw ArgumentError('Firmware directory does not contain manifest.json.');
   }
@@ -92,9 +96,11 @@ Future<void> main(List<String> arguments) async {
     }
   }
 
-  if (Platform.isLinux) {
+  if (Platform.isLinux || Platform.isMacOS) {
     await run('python3', [
-      'tool/package_linux_tools.py',
+      Platform.isLinux
+          ? 'tool/package_linux_tools.py'
+          : 'tool/package_macos_tools.py',
       '--output',
       firmwareDirectory!,
     ], app);
@@ -210,6 +216,18 @@ Future<void> main(List<String> arguments) async {
   await removeRetiredBundleFiles(Directory(directory));
   if (Platform.isLinux) {
     await publishBundle(Directory(directory), Directory(installedDirectory));
+  }
+  if (Platform.isMacOS) {
+    // Adding libexec and firmware after `flutter build` breaks the bundle seal,
+    // so re-sign the whole bundle ad hoc. Distribution builds replace '-' with
+    // a Developer ID through CODESIGN_IDENTITY.
+    await run('codesign', [
+      '--force',
+      '--deep',
+      '--sign',
+      Platform.environment['CODESIGN_IDENTITY'] ?? '-',
+      p.dirname(p.dirname(installedDirectory)),
+    ], app);
   }
   await settings.parent.create(recursive: true);
   await settings.writeAsString(

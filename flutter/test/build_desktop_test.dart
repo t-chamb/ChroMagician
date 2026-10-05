@@ -8,6 +8,34 @@ import '../tool/build_desktop.dart'
 
 void main() {
   test(
+    'macOS tool lookup prefers earlier directories and skips misses',
+    () async {
+      final root = await Directory.systemTemp.createTemp('macos tools ');
+      addTearDown(() => root.delete(recursive: true));
+      final homebrew = await Directory('${root.path}/homebrew').create();
+      await File('/bin/echo').copy('${homebrew.path}/openFPGALoader');
+      final found = await locateMacosTool(
+        'openFPGALoader',
+        searchPath: ['${root.path}/missing', '', homebrew.path],
+      );
+      expect(found, '${homebrew.path}/openFPGALoader');
+      expect(
+        await locateMacosTool('esptool', searchPath: [homebrew.path]),
+        isNull,
+      );
+    },
+  );
+
+  test('macOS resolves unbundled tools to absolute paths', () async {
+    final config = await firmwareToolConfiguration(
+      directory: (await Directory.systemTemp.createTemp('no tools ')).path,
+    );
+    for (final name in ['esptool', 'openFPGALoader']) {
+      expect(config.tools[name]!.first, startsWith('/'));
+    }
+  }, skip: !Platform.isMacOS);
+
+  test(
     'portable tools survive relocation, preserve arguments, and omit firmware',
     () async {
       final root = await Directory.systemTemp.createTemp('portable tools ');

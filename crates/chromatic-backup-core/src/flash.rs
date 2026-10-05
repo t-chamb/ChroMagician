@@ -854,7 +854,8 @@ fn run(
 
 #[cfg(test)]
 mod tests {
-    #[cfg(unix)]
+    // Pseudo-terminal fixtures: macOS ptys reject baud-rate changes (ENOTTY).
+    #[cfg(target_os = "linux")]
     #[test]
     fn stock_console_stays_unknown_until_a_real_custom_status_reply() {
         use std::cell::Cell;
@@ -898,7 +899,7 @@ mod tests {
         assert_eq!(modes, [None, Some(false)]);
     }
 
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     #[test]
     fn sleeping_mcu_keeps_confirmed_mode_then_detects_enable_without_reopening() {
         use std::cell::Cell;
@@ -959,7 +960,7 @@ mod tests {
         );
     }
 
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     #[test]
     fn mode_toggle_republishes_sd_and_missing_cart_never_opens_programmer() {
         use super::*;
@@ -1272,7 +1273,7 @@ mod tests {
         assert!(validate_rom(&rom, 0x0020_0000).is_err());
     }
 
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     #[test]
     fn watches_physical_writability_and_reprobes_after_removal() {
         for id in [None, Some(0xc8)] {
@@ -1280,7 +1281,7 @@ mod tests {
         }
     }
 
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     #[allow(clippy::too_many_lines)]
     fn watch_physical_cart(id: Option<u8>) {
         use std::cell::Cell;
@@ -1427,12 +1428,12 @@ mod tests {
         );
     }
 
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     fn exchange_response(response: &[u8], expected: usize) -> (Result<Vec<u8>, BackupError>, bool) {
         exchange_payload_response(&[3, 0, 0, 0, 0], response, expected)
     }
 
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     fn exchange_payload_response(
         payload: &[u8],
         response: &[u8],
@@ -1468,7 +1469,7 @@ mod tests {
         (result, connection.healthy)
     }
 
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     #[test]
     fn verifies_direct_bulk_data_and_crc_without_text_encoding_payload() {
         let data: Vec<u8> = (0..BLOCK).map(|n| n.to_le_bytes()[0]).collect();
@@ -1496,7 +1497,7 @@ mod tests {
         assert!(!healthy);
     }
 
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     #[test]
     fn rejects_corrupt_out_of_order_and_failed_device_replies() {
         for reply in [

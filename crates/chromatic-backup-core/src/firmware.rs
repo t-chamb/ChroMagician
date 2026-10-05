@@ -352,7 +352,8 @@ mod tests {
         }
     }
 
-    #[cfg(unix)]
+    // Pseudo-terminal fixtures: macOS ptys reject baud-rate changes (ENOTTY).
+    #[cfg(target_os = "linux")]
     #[test]
     fn sleeping_firmware_wakes_after_flash_at_either_baud() {
         use serialport::SerialPort as _;
@@ -424,7 +425,7 @@ mod tests {
         }
     }
 
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     #[test]
     fn post_flash_restarts_a_console_reporting_a_cached_fpga_version() {
         use serialport::SerialPort as _;
@@ -501,7 +502,7 @@ mod tests {
         assert_eq!(restarts, 1);
     }
 
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     #[test]
     fn unresponsive_post_flash_console_has_a_bounded_reset_count() {
         use serialport::SerialPort as _;
@@ -520,7 +521,7 @@ mod tests {
         assert!(started.elapsed() < Duration::from_secs(12));
     }
 
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     #[test]
     fn passive_query_never_restarts_an_unresponsive_console() {
         use serialport::SerialPort as _;
@@ -534,7 +535,7 @@ mod tests {
         );
     }
 
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     #[test]
     fn reads_mode_and_physical_presence_without_opening_a_cart_session() {
         use serialport::SerialPort as _;
@@ -580,7 +581,7 @@ mod tests {
         assert_eq!(parse_device_status(b"PCSTATUS enabled=2 cartridge=0"), None);
     }
 
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     #[test]
     fn unrecognized_command_preserves_speed_without_claiming_custom_firmware() {
         use serialport::SerialPort as _;
@@ -605,7 +606,7 @@ mod tests {
         }
     }
 
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     #[test]
     fn silent_startup_is_bounded_and_never_restarts_the_mcu() {
         use serialport::SerialPort as _;
@@ -634,7 +635,7 @@ mod tests {
         );
     }
 
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     #[test]
     fn reads_fragmented_versions_at_either_baud_without_a_long_first_timeout() {
         use serialport::SerialPort as _;

@@ -20,6 +20,17 @@ Download an installer from [Releases](https://github.com/cursedtoast2/ChroMagici
 
 Portable packages are also available. Flashing tools and their runtimes are included.
 
+**macOS (Apple silicon):** no installer is published yet. Build from source:
+
+```sh
+brew install --cask flutter
+brew install cocoapods rustup cmake libusb libftdi hidapi
+cd flutter && flutter pub get && dart run tool/build_desktop.dart
+open build/macos/Build/Products/Release/chromatic_pc_backup.app
+```
+
+The build compiles the same pinned `openFPGALoader` revision and `esptool` release as the Linux and Windows packages and bundles them in the app. Automatic app updates are not available on macOS.
+
 Run [ModRetro's MRUpdater](https://support.modretro.com/en_us/chromatic-firmware-updater-ryhoYnzCx) and complete its USB setup, then close it before opening ChroMagician.
 
 ## Connect your Chromatic

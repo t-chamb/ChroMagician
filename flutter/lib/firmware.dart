@@ -340,7 +340,7 @@ class FirmwareInstaller {
         mcu.path,
       ]);
       if (!RegExp(
-            r'Checksum: [0-9a-f]+ \(valid\)',
+            r'Checksum: (?:0x)?[0-9a-f]+ \(valid\)',
             caseSensitive: false,
           ).hasMatch(image.output) ||
           !RegExp(
@@ -349,7 +349,7 @@ class FirmwareInstaller {
           ).hasMatch(image.output)) {
         throw const FirmwareFailure('The MCU application checksum is invalid.');
       }
-      await run('openFPGALoader', ['--version']);
+      await run('openFPGALoader', ['-V']);
       final ports = await backend.devices();
       if (ports.length != 1) {
         throw FirmwareFailure(

@@ -210,6 +210,7 @@ Future<FirmwareBundle> firmwareToolConfiguration({String? directory}) async {
     'esptool': ['esptool'],
     'openFPGALoader': ['openFPGALoader'],
   };
+  var portable = false;
   if (await manifest.exists()) {
     final data =
         jsonDecode(await manifest.readAsString()) as Map<String, dynamic>;
@@ -219,7 +220,8 @@ Future<FirmwareBundle> firmwareToolConfiguration({String? directory}) async {
             MapEntry(key as String, List<String>.from(value as List)),
       ),
     );
-    if (data['portable_tools'] == true) {
+    portable = data['portable_tools'] == true;
+    if (portable) {
       for (final name in ['esptool', 'openFPGALoader']) {
         final command = tools[name]!;
         if (command.isEmpty ||
@@ -242,6 +244,14 @@ Future<FirmwareBundle> firmwareToolConfiguration({String? directory}) async {
       }
     }
   }
+  if (Platform.isMacOS && !portable) {
+    for (final name in ['esptool', 'openFPGALoader']) {
+      final command = tools[name]!;
+      if (p.isAbsolute(command.first)) continue;
+      final located = await locateMacosTool(command.first);
+      if (located != null) tools[name] = [located, ...command.skip(1)];
+    }
+  }
   return FirmwareBundle(root, tools, [
     for (final id in ['chromagician', 'stock'])
       FirmwareRelease({
@@ -252,4 +262,28 @@ Future<FirmwareBundle> firmwareToolConfiguration({String? directory}) async {
         'fpga': <String, String>{},
       }),
   ]);
+}
+
+/// Resolve a flashing tool to an absolute path on macOS.
+///
+/// Apps launched from Finder inherit a minimal PATH that excludes Homebrew and
+/// MacPorts, so those prefixes are searched after the process PATH.
+Future<String?> locateMacosTool(
+  String name, {
+  Iterable<String>? searchPath,
+}) async {
+  final directories =
+      (searchPath ??
+              [
+                ...?Platform.environment['PATH']?.split(':'),
+                '/opt/homebrew/bin',
+                '/usr/local/bin',
+                '/opt/local/bin',
+              ])
+          .where((directory) => directory.isNotEmpty);
+  for (final directory in directories) {
+    final candidate = File(p.join(directory, name));
+    if (await candidate.exists()) return candidate.path;
+  }
+  return null;
 }

@@ -81,7 +81,7 @@ void main() {
       final phases = <String>[];
       final result =
           await updater.prepare(release, phases.add) as LocalAppUpdate;
-      expect(result.work.parent.path, root.path);
+      expect(result.work.parent.path, await root.resolveSymbolicLinks());
       expect(
         await bundleVersion(
           Directory(p.join(result.work.path, 'ChroMagician')),

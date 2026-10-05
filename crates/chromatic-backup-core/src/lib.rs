@@ -297,9 +297,17 @@ pub fn discover_ports() -> Result<Vec<String>, BackupError> {
             }
             _ => None,
         })
+        .filter(|name| !is_macos_dial_in_alias(name))
         .collect::<Vec<_>>();
     matches.sort();
     Ok(matches)
+}
+
+/// macOS publishes every USB serial device twice: `/dev/cu.*` (call-out) and `/dev/tty.*`
+/// (dial-in, which blocks on carrier detect). Both name the same Chromatic, so only the
+/// call-out node is kept.
+fn is_macos_dial_in_alias(port_name: &str) -> bool {
+    cfg!(target_os = "macos") && port_name.starts_with("/dev/tty.")
 }
 
 /// Back up a cartridge while reporting structured progress through `on_event`.
@@ -1203,6 +1211,17 @@ fn sync_parent(path: &Path) -> Result<(), BackupError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn macos_dial_in_ports_are_hidden_only_on_macos() {
+        assert_eq!(
+            is_macos_dial_in_alias("/dev/tty.usbmodem0123456781"),
+            cfg!(target_os = "macos")
+        );
+        assert!(!is_macos_dial_in_alias("/dev/cu.usbmodem0123456781"));
+        assert!(!is_macos_dial_in_alias("/dev/ttyACM0"));
+        assert!(!is_macos_dial_in_alias("COM3"));
+    }
 
     #[test]
     fn title_is_decoded_and_trimmed() {

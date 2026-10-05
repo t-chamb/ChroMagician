@@ -64,7 +64,7 @@ void main() {
 
       final esp = await run('esptool', ['version']);
       expect('${esp.stdout}${esp.stderr}', contains('4.12.0'));
-      final fpga = await run('openFPGALoader', ['--version']);
+      final fpga = await run('openFPGALoader', ['-V']);
       expect('${fpga.stdout}${fpga.stderr}', contains('1.1.1'));
       final cables = await run('openFPGALoader', ['--list-cables']);
       expect('${cables.stdout}${cables.stderr}', contains('gwu2x'));
