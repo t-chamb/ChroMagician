@@ -24,6 +24,7 @@ void main() {
         final backend = FakeBackend();
         final c = CartController(backend)
           ..port = '/dev/ttyTEST'
+          ..pcModeEnabled = true
           ..sdPresent = true
           ..showingSd = true
           ..sdEntries = [entries.first];
@@ -148,6 +149,7 @@ void main() {
       final backend = FakeBackend()..transfer = () => stream.stream;
       final c = CartController(backend)
         ..port = '/dev/ttyTEST'
+        ..pcModeEnabled = true
         ..sdPresent = true
         ..showingSd = true;
       addTearDown(c.dispose);
@@ -194,9 +196,14 @@ void main() {
     addTearDown(() => FileSelectorPlatform.instance = previous);
     final picker = FakeFileSelector();
     FileSelectorPlatform.instance = picker;
+    tester.view.physicalSize = const Size(820, 660);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final backend = FakeBackend();
     final c = CartController(backend)
       ..port = '/dev/ttyTEST'
+      ..pcModeEnabled = true
       ..sdPresent = true
       ..showingSd = true;
     addTearDown(c.dispose);
@@ -233,6 +240,7 @@ void main() {
         );
       final c = CartController(backend)
         ..port = '/dev/ttyTEST'
+        ..pcModeEnabled = true
         ..sdPresent = true
         ..showingSd = true
         ..sdEntries = entries;
@@ -263,6 +271,7 @@ void main() {
       final backend = FakeBackend();
       final c = CartController(backend)
         ..port = '/dev/ttyTEST'
+        ..pcModeEnabled = true
         ..sdPresent = true
         ..showingSd = true
         ..sdDirectory = '/CHROMATIC'

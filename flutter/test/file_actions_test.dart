@@ -29,6 +29,18 @@ class FakeFileSelector extends FileSelectorPlatform {
   }
 
   @override
+  Future<List<XFile>> openFiles({
+    List<XTypeGroup>? acceptedTypeGroups,
+    String? initialDirectory,
+    String? confirmButtonText,
+  }) async {
+    saving = false;
+    buttonText = confirmButtonText;
+    final path = await selection.future;
+    return path == null ? const [] : [XFile(path)];
+  }
+
+  @override
   Future<FileSaveLocation?> getSaveLocation({
     List<XTypeGroup>? acceptedTypeGroups,
     SaveDialogOptions options = const SaveDialogOptions(),

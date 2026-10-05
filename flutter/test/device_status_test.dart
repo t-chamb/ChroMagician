@@ -9,6 +9,10 @@ void main() {
   testWidgets('mode and readable game control prompts without restarting', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(820, 660);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final backend = WatchingBackend();
     final c = CartController(backend);
 

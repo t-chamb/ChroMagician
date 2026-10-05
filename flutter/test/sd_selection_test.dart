@@ -52,6 +52,7 @@ Future<CartController> browser(WidgetTester tester, SdBackend backend) async {
   addTearDown(tester.view.resetDevicePixelRatio);
   final c = CartController(backend)
     ..port = '/dev/ttyTEST'
+    ..pcModeEnabled = true
     ..sdPresent = true
     ..showingSd = true
     ..sdEntries = List.of(backend.files['/']!);

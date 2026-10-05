@@ -739,6 +739,33 @@ class _WorkspaceState extends State<Workspace> {
     }
   }
 
+  static const _sdToolbarFullWidth = 880.0;
+  static const _sdSecondaryActions = [
+    (
+      id: 'upload-folder',
+      label: 'Copy folder to SD',
+      icon: Icons.drive_folder_upload_outlined,
+      tooltip: null,
+    ),
+    (
+      id: 'mkdir',
+      label: 'New folder',
+      icon: Icons.create_new_folder_outlined,
+      tooltip: null,
+    ),
+    (
+      id: 'initialize',
+      label: 'Initialize backups',
+      icon: Icons.folder_special_outlined,
+      tooltip:
+          'Creates the CHROMAGIC/BACKUPS folder on the card, where the '
+          'BACKUPS tab looks for games. Use it on a fresh card.',
+    ),
+  ];
+
+  static Widget _withTooltip(String? message, Widget child) =>
+      message == null ? child : Tooltip(message: message, child: child);
+
   Widget sdWorkspace() {
     final scope = _sdContext;
     final dropEnabled = _sdDropEnabled;
@@ -756,63 +783,75 @@ class _WorkspaceState extends State<Workspace> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Wrap(
-            spacing: 12,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              FilledButton.icon(
-                onPressed: c.busy || _picking ? null : () => sdAction('upload'),
-                icon: const Icon(Icons.upload_rounded, size: 18),
-                label: const Text('Copy to SD card'),
-              ),
-              OutlinedButton.icon(
-                onPressed: c.busy || _picking
-                    ? null
-                    : () => sdAction('upload-folder'),
-                icon: const Icon(Icons.drive_folder_upload_outlined, size: 18),
-                label: const Text('Copy folder to SD'),
-              ),
-              OutlinedButton.icon(
-                onPressed: c.busy || _picking ? null : () => sdAction('mkdir'),
-                icon: const Icon(Icons.create_new_folder_outlined, size: 18),
-                label: const Text('New folder'),
-              ),
-              Tooltip(
-                message:
-                    'Creates the CHROMAGIC/BACKUPS folder on the card, where '
-                    'the BACKUPS tab looks for games. Use it on a fresh card.',
-                child: OutlinedButton.icon(
+          LayoutBuilder(
+            builder: (context, constraints) => Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                FilledButton.icon(
                   onPressed: c.busy || _picking
                       ? null
-                      : () => sdAction('initialize'),
-                  icon: const Icon(Icons.folder_special_outlined, size: 18),
-                  label: const Text('Initialize backups'),
+                      : () => sdAction('upload'),
+                  icon: const Icon(Icons.upload_rounded, size: 18),
+                  label: const Text('Copy to SD card'),
                 ),
-              ),
-              if (_sdSelection.isNotEmpty) ...[
-                OutlinedButton.icon(
-                  key: const ValueKey('sd-move-selected'),
-                  onPressed: c.busy || _picking
-                      ? null
-                      : () => sdBulkAction(move: true),
-                  icon: const Icon(Icons.drive_file_move_outlined, size: 18),
-                  label: const Text('Move'),
-                ),
-                OutlinedButton.icon(
-                  key: const ValueKey('sd-delete-selected'),
-                  onPressed: c.busy || _picking
-                      ? null
-                      : () => sdBulkAction(move: false),
-                  icon: const Icon(Icons.delete_outline, size: 18),
-                  label: const Text('Delete'),
-                ),
-                Text(
-                  '${_sdSelection.length} selected',
-                  style: const TextStyle(fontSize: 16, color: muted),
-                ),
+                // A second toolbar row at the minimum window size leaves the
+                // file list too short to show a row beside the transfer panel.
+                if (constraints.maxWidth < _sdToolbarFullWidth)
+                  PopupMenuButton<String>(
+                    key: const ValueKey('sd-more-actions'),
+                    tooltip: 'More SD actions',
+                    enabled: !c.busy && !_picking,
+                    onSelected: sdAction,
+                    icon: const Icon(Icons.more_horiz_rounded),
+                    itemBuilder: (_) => [
+                      for (final action in _sdSecondaryActions)
+                        PopupMenuItem(
+                          value: action.id,
+                          child: ListTile(
+                            leading: Icon(action.icon),
+                            title: Text(action.label),
+                          ),
+                        ),
+                    ],
+                  )
+                else
+                  for (final action in _sdSecondaryActions)
+                    _withTooltip(
+                      action.tooltip,
+                      OutlinedButton.icon(
+                        onPressed: c.busy || _picking
+                            ? null
+                            : () => sdAction(action.id),
+                        icon: Icon(action.icon, size: 18),
+                        label: Text(action.label),
+                      ),
+                    ),
+                if (_sdSelection.isNotEmpty) ...[
+                  OutlinedButton.icon(
+                    key: const ValueKey('sd-move-selected'),
+                    onPressed: c.busy || _picking
+                        ? null
+                        : () => sdBulkAction(move: true),
+                    icon: const Icon(Icons.drive_file_move_outlined, size: 18),
+                    label: const Text('Move'),
+                  ),
+                  OutlinedButton.icon(
+                    key: const ValueKey('sd-delete-selected'),
+                    onPressed: c.busy || _picking
+                        ? null
+                        : () => sdBulkAction(move: false),
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    label: const Text('Delete'),
+                  ),
+                  Text(
+                    '${_sdSelection.length} selected',
+                    style: const TextStyle(fontSize: 16, color: muted),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
           const SizedBox(height: 16),
           Row(

@@ -318,7 +318,9 @@ void main() {
       final scan = c.refreshDevices();
       await tester.pump();
       await tester.pump();
-      expect(find.text('Loading'), findsOneWidget);
+      // A known ChroMagic console shows its mode instructions until it
+      // reports a status (see firmware_setup_test), never the controls.
+      expect(find.text('Enable C. MAGICIAN'), findsOneWidget);
       expect(find.text('Your next adventure'), findsNothing);
       expect(find.byType(TextButton), findsNothing);
       header.add({'event': 'cartridge_inspected', 'cartridge': crystal});
