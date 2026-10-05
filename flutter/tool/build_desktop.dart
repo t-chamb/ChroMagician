@@ -96,11 +96,16 @@ Future<void> main(List<String> arguments) async {
     }
   }
 
-  if (Platform.isLinux || Platform.isMacOS) {
+  if (Platform.isLinux) {
     await run('python3', [
-      Platform.isLinux
-          ? 'tool/package_linux_tools.py'
-          : 'tool/package_macos_tools.py',
+      'tool/package_linux_tools.py',
+      '--output',
+      firmwareDirectory!,
+    ], app);
+  }
+  if (Platform.isMacOS) {
+    await run(macosPython(), [
+      'tool/package_macos_tools.py',
       '--output',
       firmwareDirectory!,
     ], app);
@@ -125,6 +130,14 @@ Future<void> main(List<String> arguments) async {
     workspace,
     environment: {'CARGO_ENCODED_RUSTFLAGS': rustFlags.join('\u001f')},
   );
+  if (Platform.isMacOS) {
+    // Helpers from an earlier run would be sealed, and rejected, by Xcode's
+    // own signing step; they are added back and re-signed below.
+    for (final folder in ['libexec', 'firmware']) {
+      final stale = Directory(p.join(macosExecutableDirectory(app), folder));
+      if (stale.existsSync()) await stale.delete(recursive: true);
+    }
+  }
   await run('flutter', [
     'build',
     platform,
@@ -138,17 +151,7 @@ Future<void> main(List<String> arguments) async {
   final installedDirectory = switch (platform) {
     'linux' => p.join(app, 'build', 'linux', arch, 'release', 'bundle'),
     'windows' => p.join(app, 'build', 'windows', arch, 'runner', 'Release'),
-    _ => p.join(
-      app,
-      'build',
-      'macos',
-      'Build',
-      'Products',
-      'Release',
-      'chromatic_pc_backup.app',
-      'Contents',
-      'MacOS',
-    ),
+    _ => macosExecutableDirectory(app),
   };
   var directory = installedDirectory;
   if (Platform.isLinux) {
@@ -218,16 +221,14 @@ Future<void> main(List<String> arguments) async {
     await publishBundle(Directory(directory), Directory(installedDirectory));
   }
   if (Platform.isMacOS) {
-    // Adding libexec and firmware after `flutter build` breaks the bundle seal,
-    // so re-sign the whole bundle ad hoc. Distribution builds replace '-' with
-    // a Developer ID through CODESIGN_IDENTITY.
-    await run('codesign', [
-      '--force',
-      '--deep',
-      '--sign',
-      Platform.environment['CODESIGN_IDENTITY'] ?? '-',
-      p.dirname(p.dirname(installedDirectory)),
-    ], app);
+    await signMacosBundle(
+      Directory(p.dirname(p.dirname(installedDirectory))),
+      identity: Platform.environment['CODESIGN_IDENTITY'] ?? '-',
+      entitlements: File(
+        p.join(app, 'macos', 'Runner', 'Release.entitlements'),
+      ),
+      run: (arguments) => run('codesign', arguments, app),
+    );
   }
   await settings.parent.create(recursive: true);
   await settings.writeAsString(
@@ -361,4 +362,65 @@ Future<void> publishBundle(Directory source, Directory destination) async {
       await link.rename(target);
     }
   }
+}
+
+String macosExecutableDirectory(String app) => p.join(
+  app,
+  'build',
+  'macos',
+  'Build',
+  'Products',
+  'Release',
+  'chromatic_pc_backup.app',
+  'Contents',
+  'MacOS',
+);
+
+/// The Python used to package macOS tools. The Xcode command line tools ship
+/// 3.9, which is too old, so a Homebrew or MacPorts interpreter is preferred.
+String macosPython() {
+  for (final candidate in [
+    '/opt/homebrew/bin/python3',
+    '/usr/local/bin/python3',
+    '/opt/local/bin/python3',
+  ]) {
+    if (File(candidate).existsSync()) return candidate;
+  }
+  return 'python3';
+}
+
+/// Re-sign an app bundle after helpers were added below Contents/MacOS.
+///
+/// Xcode's seal no longer matches, and `--deep` would discard the entitlements
+/// and hardened runtime a notarized build needs, so nested files are signed
+/// first and the bundle last. Everything under Contents/MacOS counts as code
+/// to strict verification, so scripts and data files are signed too. Ad hoc
+/// signing ('-') cannot carry a secure timestamp, so that and the hardened
+/// runtime are applied only for a real identity.
+Future<void> signMacosBundle(
+  Directory bundle, {
+  required String identity,
+  required File entitlements,
+  required Future<void> Function(List<String> arguments) run,
+}) async {
+  final distribution = identity != '-';
+  final common = [
+    '--force',
+    '--sign',
+    identity,
+    if (distribution) ...['--options', 'runtime', '--timestamp'],
+  ];
+  final nested = <File>[];
+  for (final folder in ['libexec', 'firmware']) {
+    final root = Directory(p.join(bundle.path, 'Contents', 'MacOS', folder));
+    if (!await root.exists()) continue;
+    await for (final entry in root.list(recursive: true, followLinks: false)) {
+      if (entry is File) nested.add(entry);
+    }
+  }
+  nested.sort((a, b) => b.path.length.compareTo(a.path.length));
+  for (final file in nested) {
+    await run([...common, file.path]);
+  }
+  await run([...common, '--entitlements', entitlements.path, bundle.path]);
 }

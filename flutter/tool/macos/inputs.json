@@ -1,0 +1,22 @@
+{
+  "libusb": {
+    "version": "1.0.30",
+    "url": "https://github.com/libusb/libusb/releases/download/v1.0.30/libusb-1.0.30.tar.bz2",
+    "sha256": "fea36f34f9156400209595e300840767ab1a385ede1dc7ee893015aea9c6dbaf"
+  },
+  "libftdi1": {
+    "version": "1.5",
+    "url": "https://www.intra2net.com/en/developer/libftdi/download/libftdi1-1.5.tar.bz2",
+    "sha256": "7c7091e9c86196148bd41177b4590dccb1510bfe6cea5bf7407ff194482eb049"
+  },
+  "hidapi": {
+    "version": "0.15.0",
+    "url": "https://github.com/libusb/hidapi/archive/refs/tags/hidapi-0.15.0.tar.gz",
+    "sha256": "5d84dec684c27b97b921d2f3b73218cb773cf4ea915caee317ac8fc73cef8136"
+  },
+  "cpython": {
+    "version": "3.12.15",
+    "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261003/cpython-3.12.15%2B20261003-aarch64-apple-darwin-install_only.tar.gz",
+    "sha256": "316a463172740e71d8dca1f2730784e325f3f720941137b5d674d5801a632213"
+  }
+}

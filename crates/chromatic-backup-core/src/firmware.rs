@@ -351,9 +351,6 @@ mod tests {
             }
         }
     }
-
-    // Pseudo-terminal fixtures: macOS ptys reject baud-rate changes (ENOTTY).
-    #[cfg(target_os = "linux")]
     #[test]
     fn sleeping_firmware_wakes_after_flash_at_either_baud() {
         use serialport::SerialPort as _;
@@ -364,7 +361,7 @@ mod tests {
             mpsc,
         };
         for baud in [115_200, 2_000_000] {
-            let (mut client, mut device) = serialport::TTYPort::pair().unwrap();
+            let (mut client, mut device) = crate::test_port::pair();
             client.set_timeout(Duration::from_millis(25)).unwrap();
             device.set_timeout(Duration::from_millis(25)).unwrap();
             let (reset, resets) = mpsc::channel();
@@ -424,8 +421,6 @@ mod tests {
             assert_eq!(restarts, if baud == 115_200 { 1 } else { 2 });
         }
     }
-
-    #[cfg(target_os = "linux")]
     #[test]
     fn post_flash_restarts_a_console_reporting_a_cached_fpga_version() {
         use serialport::SerialPort as _;
@@ -435,7 +430,7 @@ mod tests {
             atomic::{AtomicBool, Ordering},
             mpsc,
         };
-        let (mut client, mut device) = serialport::TTYPort::pair().unwrap();
+        let (mut client, mut device) = crate::test_port::pair();
         client.set_timeout(Duration::from_millis(25)).unwrap();
         device.set_timeout(Duration::from_millis(25)).unwrap();
         let (reset, resets) = mpsc::channel();
@@ -501,12 +496,10 @@ mod tests {
         assert_eq!(result.unwrap(), expected);
         assert_eq!(restarts, 1);
     }
-
-    #[cfg(target_os = "linux")]
     #[test]
     fn unresponsive_post_flash_console_has_a_bounded_reset_count() {
         use serialport::SerialPort as _;
-        let (mut client, _device) = serialport::TTYPort::pair().unwrap();
+        let (mut client, _device) = crate::test_port::pair();
         client.set_timeout(Duration::from_millis(25)).unwrap();
         let mut restarts = 0;
         let started = Instant::now();
@@ -520,12 +513,10 @@ mod tests {
         assert_eq!(restarts, 2);
         assert!(started.elapsed() < Duration::from_secs(12));
     }
-
-    #[cfg(target_os = "linux")]
     #[test]
     fn passive_query_never_restarts_an_unresponsive_console() {
         use serialport::SerialPort as _;
-        let (mut client, _device) = serialport::TTYPort::pair().unwrap();
+        let (mut client, _device) = crate::test_port::pair();
         client.set_timeout(Duration::from_millis(25)).unwrap();
         assert!(
             query_versions(&mut client, false, None, |_| panic!(
@@ -534,13 +525,11 @@ mod tests {
             .is_err()
         );
     }
-
-    #[cfg(target_os = "linux")]
     #[test]
     fn reads_mode_and_physical_presence_without_opening_a_cart_session() {
         use serialport::SerialPort as _;
         use std::io::{Read as _, Write as _};
-        let (mut client, mut device) = serialport::TTYPort::pair().unwrap();
+        let (mut client, mut device) = crate::test_port::pair();
         client.set_timeout(Duration::from_millis(50)).unwrap();
         device.set_timeout(Duration::from_secs(2)).unwrap();
         let peer = std::thread::spawn(move || {
@@ -580,14 +569,12 @@ mod tests {
         peer.join().unwrap();
         assert_eq!(parse_device_status(b"PCSTATUS enabled=2 cartridge=0"), None);
     }
-
-    #[cfg(target_os = "linux")]
     #[test]
     fn unrecognized_command_preserves_speed_without_claiming_custom_firmware() {
         use serialport::SerialPort as _;
         use std::io::{Read as _, Write as _};
         for baud in [115_200, 2_000_000] {
-            let (mut client, mut device) = serialport::TTYPort::pair().unwrap();
+            let (mut client, mut device) = crate::test_port::pair();
             client.set_baud_rate(baud).unwrap();
             client.set_timeout(Duration::from_millis(50)).unwrap();
             device.set_timeout(Duration::from_secs(2)).unwrap();
@@ -605,12 +592,10 @@ mod tests {
             peer.join().unwrap();
         }
     }
-
-    #[cfg(target_os = "linux")]
     #[test]
     fn silent_startup_is_bounded_and_never_restarts_the_mcu() {
         use serialport::SerialPort as _;
-        let (mut client, _device) = serialport::TTYPort::pair().unwrap();
+        let (mut client, _device) = crate::test_port::pair();
         client.set_timeout(Duration::from_millis(25)).unwrap();
         let started = Instant::now();
         let result = query_versions(&mut client, false, None, |_| {
@@ -634,8 +619,6 @@ mod tests {
             parse_version(b"{\"mcu\":\"\",\"fpga\":\"18.10\",\"chromatic\":\"4.2\"}").is_none()
         );
     }
-
-    #[cfg(target_os = "linux")]
     #[test]
     fn reads_fragmented_versions_at_either_baud_without_a_long_first_timeout() {
         use serialport::SerialPort as _;
@@ -648,7 +631,7 @@ mod tests {
             (115_200, 0, true),
             (2_000_000, 0, true),
         ] {
-            let (mut client, mut device) = serialport::TTYPort::pair().unwrap();
+            let (mut client, mut device) = crate::test_port::pair();
             client.set_timeout(Duration::from_millis(50)).unwrap();
             device.set_timeout(Duration::from_secs(4)).unwrap();
             let (finished, wait) = std::sync::mpsc::channel();

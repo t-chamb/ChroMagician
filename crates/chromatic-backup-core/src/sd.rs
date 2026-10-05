@@ -793,16 +793,13 @@ mod tests {
             "/日本"
         );
     }
-
-    // Pseudo-terminal fixtures: macOS ptys reject baud-rate changes (ENOTTY).
-    #[cfg(target_os = "linux")]
     fn batch_script(
         script: Vec<(Vec<u8>, String)>,
         paths: &[&str],
         destination: Option<&str>,
         device_failed: bool,
     ) -> Result<(), BackupError> {
-        let (mut client, mut device) = serialport::TTYPort::pair().unwrap();
+        let (mut client, mut device) = crate::test_port::pair();
         client.set_timeout(Duration::from_millis(50)).unwrap();
         device.set_timeout(Duration::from_secs(2)).unwrap();
         let (done, wait) = std::sync::mpsc::channel();
@@ -849,8 +846,6 @@ mod tests {
         peer.join().unwrap();
         result
     }
-
-    #[cfg(target_os = "linux")]
     #[test]
     fn bulk_move_reuses_rename_and_checks_all_collisions_before_mutation() {
         let source = concat!(
@@ -877,8 +872,6 @@ mod tests {
             assert_eq!(result.is_err(), collision);
         }
     }
-
-    #[cfg(target_os = "linux")]
     #[test]
     fn bulk_delete_expands_selected_folders_and_preserves_other_entries() {
         let script = vec![
@@ -906,8 +899,6 @@ mod tests {
         )];
         assert!(batch_script(script, &["/Folder"], Some("/Folder/nested"), false).is_err());
     }
-
-    #[cfg(target_os = "linux")]
     #[test]
     fn bulk_move_stops_at_a_device_failure() {
         let script = vec![
@@ -963,11 +954,10 @@ mod tests {
         assert!(parse_status("STATUS present=1 error=ESP_FAIL").is_err());
     }
     use super::*;
-    #[cfg(target_os = "linux")]
     #[test]
     fn folder_deletion_validates_then_removes_children_before_parents() {
         for malicious in [false, true] {
-            let (mut client, mut device) = serialport::TTYPort::pair().unwrap();
+            let (mut client, mut device) = crate::test_port::pair();
             client.set_timeout(Duration::from_millis(100)).unwrap();
             device.set_timeout(Duration::from_secs(2)).unwrap();
             let peer = std::thread::spawn(move || {
@@ -1034,8 +1024,6 @@ mod tests {
         assert!(result.rsplit('/').next().unwrap().len() <= 251);
         assert_eq!(std::path::Path::new(&result).extension().unwrap(), "gbc");
     }
-
-    #[cfg(target_os = "linux")]
     #[test]
     #[allow(clippy::too_many_lines)]
     fn direct_backup_waits_for_the_complete_rom_save_and_clock_set() {
@@ -1050,7 +1038,7 @@ mod tests {
             } else {
                 "/CHROMAGIC/BACKUPS/Crystal (Japan).gbc"
             };
-            let (mut client, mut device) = serialport::TTYPort::pair().unwrap();
+            let (mut client, mut device) = crate::test_port::pair();
             client.set_timeout(Duration::from_millis(100)).unwrap();
             device.set_timeout(Duration::from_secs(2)).unwrap();
             let peer = std::thread::spawn(move || {
@@ -1145,11 +1133,10 @@ mod tests {
             peer.join().unwrap();
         }
     }
-    #[cfg(target_os = "linux")]
     #[test]
     fn binary_download_checks_crc_and_preserves_exact_final_length() {
         for corrupt in [false, true] {
-            let (mut client, mut device) = serialport::TTYPort::pair().unwrap();
+            let (mut client, mut device) = crate::test_port::pair();
             client.set_timeout(Duration::from_millis(100)).unwrap();
             device.set_timeout(Duration::from_secs(2)).unwrap();
             let data: Vec<u8> = (0..2051).map(|i| u8::try_from(i % 251).unwrap()).collect();

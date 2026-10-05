@@ -12,3 +12,6 @@ PRODUCT_BUNDLE_IDENTIFIER = dev.chromatic.chromaticPcBackup
 
 // The copyright displayed in application information
 PRODUCT_COPYRIGHT = Copyright © 2026 dev.chromatic. All rights reserved.
+
+// The bundled Rust backend and flashing tools are built for Apple silicon only.
+EXCLUDED_ARCHS = x86_64

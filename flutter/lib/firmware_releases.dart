@@ -283,7 +283,9 @@ Future<String?> locateMacosTool(
           .where((directory) => directory.isNotEmpty);
   for (final directory in directories) {
     final candidate = File(p.join(directory, name));
-    if (await candidate.exists()) return candidate.path;
+    if (await candidate.exists() && (await candidate.stat()).mode & 0x49 != 0) {
+      return candidate.path;
+    }
   }
   return null;
 }

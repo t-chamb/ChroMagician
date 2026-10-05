@@ -854,13 +854,11 @@ fn run(
 
 #[cfg(test)]
 mod tests {
-    // Pseudo-terminal fixtures: macOS ptys reject baud-rate changes (ENOTTY).
-    #[cfg(target_os = "linux")]
     #[test]
     fn stock_console_stays_unknown_until_a_real_custom_status_reply() {
         use std::cell::Cell;
         use std::io::Read as _;
-        let (mut client, mut device) = serialport::TTYPort::pair().unwrap();
+        let (mut client, mut device) = crate::test_port::pair();
         client.set_baud_rate(115_200).unwrap();
         client.set_timeout(Duration::from_millis(50)).unwrap();
         device.set_timeout(Duration::from_secs(4)).unwrap();
@@ -898,13 +896,11 @@ mod tests {
         peer.join().unwrap();
         assert_eq!(modes, [None, Some(false)]);
     }
-
-    #[cfg(target_os = "linux")]
     #[test]
     fn sleeping_mcu_keeps_confirmed_mode_then_detects_enable_without_reopening() {
         use std::cell::Cell;
         use std::io::Read as _;
-        let (mut client, mut device) = serialport::TTYPort::pair().unwrap();
+        let (mut client, mut device) = crate::test_port::pair();
         client.set_baud_rate(115_200).unwrap();
         client.set_timeout(Duration::from_millis(50)).unwrap();
         device.set_timeout(Duration::from_secs(4)).unwrap();
@@ -959,14 +955,12 @@ mod tests {
             ]
         );
     }
-
-    #[cfg(target_os = "linux")]
     #[test]
     fn mode_toggle_republishes_sd_and_missing_cart_never_opens_programmer() {
         use super::*;
         use std::cell::Cell;
         use std::io::Read as _;
-        let (mut client, mut device) = serialport::TTYPort::pair().unwrap();
+        let (mut client, mut device) = crate::test_port::pair();
         client.set_timeout(Duration::from_millis(50)).unwrap();
         device.set_timeout(Duration::from_secs(4)).unwrap();
         let peer = std::thread::spawn(move || {
@@ -1272,21 +1266,17 @@ mod tests {
         rom[0x200] ^= 1;
         assert!(validate_rom(&rom, 0x0020_0000).is_err());
     }
-
-    #[cfg(target_os = "linux")]
     #[test]
     fn watches_physical_writability_and_reprobes_after_removal() {
         for id in [None, Some(0xc8)] {
             watch_physical_cart(id);
         }
     }
-
-    #[cfg(target_os = "linux")]
     #[allow(clippy::too_many_lines)]
     fn watch_physical_cart(id: Option<u8>) {
         use std::cell::Cell;
         use std::io::Read as _;
-        let (mut client, mut device) = serialport::TTYPort::pair().unwrap();
+        let (mut client, mut device) = crate::test_port::pair();
         client.set_timeout(Duration::from_millis(100)).unwrap();
         device.set_timeout(Duration::from_secs(3)).unwrap();
         let mut rom = crate::rom::tests::valid_rom();
@@ -1427,13 +1417,9 @@ mod tests {
             ]
         );
     }
-
-    #[cfg(target_os = "linux")]
     fn exchange_response(response: &[u8], expected: usize) -> (Result<Vec<u8>, BackupError>, bool) {
         exchange_payload_response(&[3, 0, 0, 0, 0], response, expected)
     }
-
-    #[cfg(target_os = "linux")]
     fn exchange_payload_response(
         payload: &[u8],
         response: &[u8],
@@ -1441,7 +1427,7 @@ mod tests {
     ) -> (Result<Vec<u8>, BackupError>, bool) {
         use std::io::Read as _;
         let response = response.to_vec();
-        let (mut client, mut device) = serialport::TTYPort::pair().unwrap();
+        let (mut client, mut device) = crate::test_port::pair();
         client.set_timeout(Duration::from_millis(100)).unwrap();
         device.set_timeout(Duration::from_secs(2)).unwrap();
         let peer = std::thread::spawn(move || {
@@ -1468,8 +1454,6 @@ mod tests {
         peer.join().unwrap();
         (result, connection.healthy)
     }
-
-    #[cfg(target_os = "linux")]
     #[test]
     fn verifies_direct_bulk_data_and_crc_without_text_encoding_payload() {
         let data: Vec<u8> = (0..BLOCK).map(|n| n.to_le_bytes()[0]).collect();
@@ -1496,8 +1480,6 @@ mod tests {
         assert!(result.is_err());
         assert!(!healthy);
     }
-
-    #[cfg(target_os = "linux")]
     #[test]
     fn rejects_corrupt_out_of_order_and_failed_device_replies() {
         for reply in [

@@ -24,12 +24,12 @@ Portable packages are also available. Flashing tools and their runtimes are incl
 
 ```sh
 brew install --cask flutter
-brew install cocoapods rustup cmake libusb libftdi hidapi
+brew install cocoapods rustup cmake pkgconf python
 cd flutter && flutter pub get && dart run tool/build_desktop.dart
 open build/macos/Build/Products/Release/chromatic_pc_backup.app
 ```
 
-The build compiles the same pinned `openFPGALoader` revision and `esptool` release as the Linux and Windows packages and bundles them in the app. Automatic app updates are not available on macOS.
+The build compiles the same pinned `openFPGALoader` revision and `esptool` release as the Linux and Windows packages, with their USB libraries and a relocatable Python, and bundles them in the app. The result runs on macOS 12 or later on Apple silicon. Automatic app updates are not available on macOS.
 
 Run [ModRetro's MRUpdater](https://support.modretro.com/en_us/chromatic-firmware-updater-ryhoYnzCx) and complete its USB setup, then close it before opening ChroMagician.
 

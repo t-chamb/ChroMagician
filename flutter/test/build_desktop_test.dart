@@ -4,7 +4,11 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:chromatic_pc_backup/firmware_releases.dart';
 import '../tool/build_desktop.dart'
-    show publishBundle, packageFirmwareTools, removeBundledFirmwareImages;
+    show
+        publishBundle,
+        packageFirmwareTools,
+        removeBundledFirmwareImages,
+        signMacosBundle;
 
 void main() {
   test(
@@ -13,10 +17,14 @@ void main() {
       final root = await Directory.systemTemp.createTemp('macos tools ');
       addTearDown(() => root.delete(recursive: true));
       final homebrew = await Directory('${root.path}/homebrew').create();
-      await File('/bin/echo').copy('${homebrew.path}/openFPGALoader');
+      final stale = await Directory('${root.path}/stale').create();
+      await File('${homebrew.path}/openFPGALoader').create();
+      await File('${stale.path}/openFPGALoader').create();
+      await Process.run('chmod', ['755', '${homebrew.path}/openFPGALoader']);
+      await Process.run('chmod', ['644', '${stale.path}/openFPGALoader']);
       final found = await locateMacosTool(
         'openFPGALoader',
-        searchPath: ['${root.path}/missing', '', homebrew.path],
+        searchPath: ['${root.path}/missing', '', stale.path, homebrew.path],
       );
       expect(found, '${homebrew.path}/openFPGALoader');
       expect(
@@ -24,16 +32,69 @@ void main() {
         isNull,
       );
     },
+    skip: Platform.isWindows,
   );
 
-  test('macOS resolves unbundled tools to absolute paths', () async {
+  test('macOS resolves unbundled tools through the search path', () async {
+    final root = await Directory.systemTemp.createTemp('unbundled ');
+    addTearDown(() => root.delete(recursive: true));
     final config = await firmwareToolConfiguration(
-      directory: (await Directory.systemTemp.createTemp('no tools ')).path,
+      directory: '${root.path}/firmware',
     );
     for (final name in ['esptool', 'openFPGALoader']) {
-      expect(config.tools[name]!.first, startsWith('/'));
+      final located = await locateMacosTool(name);
+      expect(config.tools[name], [located ?? name]);
     }
   }, skip: !Platform.isMacOS);
+
+  test('macOS signing covers nested binaries before the bundle', () async {
+    final root = await Directory.systemTemp.createTemp('sign ');
+    addTearDown(() => root.delete(recursive: true));
+    final bundle = Directory('${root.path}/App.app');
+    final binaries = [
+      '${bundle.path}/Contents/MacOS/libexec/chromatic-backup',
+      '${bundle.path}/Contents/MacOS/firmware/tools/bin/openFPGALoader',
+      '${bundle.path}/Contents/MacOS/firmware/tools/lib/libusb-1.0.0.dylib',
+    ];
+    for (final path in binaries) {
+      await File(path).create(recursive: true);
+      await File(path).writeAsBytes([0xcf, 0xfa, 0xed, 0xfe, 0, 0]);
+    }
+    final script = File(
+      '${bundle.path}/Contents/MacOS/firmware/tools/openFPGALoader',
+    );
+    await script.writeAsString('#!/bin/sh\n');
+    final entitlements = File('${root.path}/Release.entitlements');
+    final calls = <List<String>>[];
+    await signMacosBundle(
+      bundle,
+      identity: 'Developer ID Application: Example',
+      entitlements: entitlements,
+      run: (arguments) async => calls.add(arguments),
+    );
+    expect(calls.length, binaries.length + 2);
+    expect(calls.last.last, bundle.path);
+    expect(calls.last, containsAll(['--entitlements', entitlements.path]));
+    for (final call in calls) {
+      expect(call, containsAll(['--options', 'runtime', '--timestamp']));
+      expect(call, isNot(contains('--deep')));
+    }
+    expect(
+      calls.take(binaries.length + 1).map((call) => call.last),
+      containsAll([...binaries, script.path]),
+    );
+    calls.clear();
+    await signMacosBundle(
+      bundle,
+      identity: '-',
+      entitlements: entitlements,
+      run: (arguments) async => calls.add(arguments),
+    );
+    for (final call in calls) {
+      expect(call, isNot(contains('--timestamp')));
+      expect(call, isNot(contains('runtime')));
+    }
+  });
 
   test(
     'portable tools survive relocation, preserve arguments, and omit firmware',

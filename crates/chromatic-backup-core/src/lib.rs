@@ -1208,6 +1208,186 @@ fn sync_parent(path: &Path) -> Result<(), BackupError> {
     Ok(())
 }
 
+/// In-memory serial link for tests. Replaces pseudo-terminal pairs, which macOS
+/// cannot drive at the baud rates the firmware protocol switches between.
+#[cfg(test)]
+pub(crate) mod test_port {
+    use serialport::{ClearBuffer, DataBits, FlowControl, Parity, SerialPort, StopBits};
+    use std::collections::VecDeque;
+    use std::io;
+    use std::sync::{Arc, Condvar, Mutex};
+    use std::time::{Duration, Instant};
+
+    #[derive(Default)]
+    struct Lane {
+        queue: Mutex<VecDeque<u8>>,
+        ready: Condvar,
+    }
+
+    #[derive(Default)]
+    struct Shared {
+        lanes: [Lane; 2],
+        baud: Mutex<u32>,
+    }
+
+    pub(crate) struct VirtualPort {
+        shared: Arc<Shared>,
+        side: usize,
+        timeout: Duration,
+    }
+
+    /// Two connected ends; bytes written to one are read from the other.
+    pub(crate) fn pair() -> (VirtualPort, VirtualPort) {
+        let shared = Arc::new(Shared::default());
+        *shared.baud.lock().unwrap() = 115_200;
+        let end = |side| VirtualPort {
+            shared: Arc::clone(&shared),
+            side,
+            timeout: Duration::from_secs(1),
+        };
+        (end(0), end(1))
+    }
+
+    impl VirtualPort {
+        fn incoming(&self) -> &Lane {
+            &self.shared.lanes[self.side]
+        }
+
+        fn outgoing(&self) -> &Lane {
+            &self.shared.lanes[1 - self.side]
+        }
+    }
+
+    impl io::Read for VirtualPort {
+        fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+            if buf.is_empty() {
+                return Ok(0);
+            }
+            let deadline = Instant::now() + self.timeout;
+            let lane = self.incoming();
+            let mut queue = lane.queue.lock().unwrap();
+            while queue.is_empty() {
+                let remaining = deadline.saturating_duration_since(Instant::now());
+                if remaining.is_zero() {
+                    return Err(io::Error::new(
+                        io::ErrorKind::TimedOut,
+                        "Operation timed out",
+                    ));
+                }
+                queue = lane.ready.wait_timeout(queue, remaining).unwrap().0;
+            }
+            let count = buf.len().min(queue.len());
+            for byte in &mut buf[..count] {
+                *byte = queue.pop_front().unwrap();
+            }
+            Ok(count)
+        }
+    }
+
+    impl io::Write for VirtualPort {
+        fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+            let lane = self.outgoing();
+            lane.queue.lock().unwrap().extend(buf);
+            lane.ready.notify_all();
+            Ok(buf.len())
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    impl SerialPort for VirtualPort {
+        fn name(&self) -> Option<String> {
+            Some(format!("virtual-{}", self.side))
+        }
+        fn baud_rate(&self) -> serialport::Result<u32> {
+            Ok(*self.shared.baud.lock().unwrap())
+        }
+        fn data_bits(&self) -> serialport::Result<DataBits> {
+            Ok(DataBits::Eight)
+        }
+        fn flow_control(&self) -> serialport::Result<FlowControl> {
+            Ok(FlowControl::None)
+        }
+        fn parity(&self) -> serialport::Result<Parity> {
+            Ok(Parity::None)
+        }
+        fn stop_bits(&self) -> serialport::Result<StopBits> {
+            Ok(StopBits::One)
+        }
+        fn timeout(&self) -> Duration {
+            self.timeout
+        }
+        fn set_baud_rate(&mut self, baud_rate: u32) -> serialport::Result<()> {
+            *self.shared.baud.lock().unwrap() = baud_rate;
+            Ok(())
+        }
+        fn set_data_bits(&mut self, _: DataBits) -> serialport::Result<()> {
+            Ok(())
+        }
+        fn set_flow_control(&mut self, _: FlowControl) -> serialport::Result<()> {
+            Ok(())
+        }
+        fn set_parity(&mut self, _: Parity) -> serialport::Result<()> {
+            Ok(())
+        }
+        fn set_stop_bits(&mut self, _: StopBits) -> serialport::Result<()> {
+            Ok(())
+        }
+        fn set_timeout(&mut self, timeout: Duration) -> serialport::Result<()> {
+            self.timeout = timeout;
+            Ok(())
+        }
+        fn write_request_to_send(&mut self, _: bool) -> serialport::Result<()> {
+            Ok(())
+        }
+        fn write_data_terminal_ready(&mut self, _: bool) -> serialport::Result<()> {
+            Ok(())
+        }
+        fn read_clear_to_send(&mut self) -> serialport::Result<bool> {
+            Ok(true)
+        }
+        fn read_data_set_ready(&mut self) -> serialport::Result<bool> {
+            Ok(true)
+        }
+        fn read_ring_indicator(&mut self) -> serialport::Result<bool> {
+            Ok(false)
+        }
+        fn read_carrier_detect(&mut self) -> serialport::Result<bool> {
+            Ok(true)
+        }
+        fn bytes_to_read(&self) -> serialport::Result<u32> {
+            Ok(u32::try_from(self.incoming().queue.lock().unwrap().len()).unwrap())
+        }
+        fn bytes_to_write(&self) -> serialport::Result<u32> {
+            Ok(0)
+        }
+        fn clear(&self, buffer: ClearBuffer) -> serialport::Result<()> {
+            if matches!(buffer, ClearBuffer::Input | ClearBuffer::All) {
+                self.incoming().queue.lock().unwrap().clear();
+            }
+            if matches!(buffer, ClearBuffer::Output | ClearBuffer::All) {
+                self.outgoing().queue.lock().unwrap().clear();
+            }
+            Ok(())
+        }
+        fn try_clone(&self) -> serialport::Result<Box<dyn SerialPort>> {
+            Ok(Box::new(VirtualPort {
+                shared: Arc::clone(&self.shared),
+                side: self.side,
+                timeout: self.timeout,
+            }))
+        }
+        fn set_break(&self) -> serialport::Result<()> {
+            Ok(())
+        }
+        fn clear_break(&self) -> serialport::Result<()> {
+            Ok(())
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
